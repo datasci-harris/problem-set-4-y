@@ -1,0 +1,38 @@
+---
+title: "Python 2 Problem Set 4"
+author: "Yufei Liu"
+format: 
+  pdf:
+    keep-tex: true
+    include-in-header: 
+       text: |
+         \usepackage{fvextra}
+         \DefineVerbatimEnvironment{Highlighting}{Verbatim}{breaklines,commandchars=\\\{\}}
+include-before-body:
+  text: |
+    \RecustomVerbatimEnvironment{verbatim}{Verbatim}{
+      showspaces = false,
+      showtabs = false,
+      breaksymbolleft={},
+      breaklines
+    }
+---
+
+**PS4:** Due Sat Nov 2 at 5:00PM Central. Worth 100 points. 
+
+## Style Points (10 pts)
+
+## Submission Steps (10 pts)
+
+Partner 1: Yufei Liu (yufeil)
+Partner 2: Yufei Liu (yufeil)
+
+
+This submission is our work alone and complies with the 30538 integrity policy. Add your initials to indicate your agreement: **Yufei Liu**, **Penny Shi**
+
+I have uploaded the names of anyone else other than my partner and I worked with
+on the problem set. (No other one)
+
+Late coins used this pset: **0** Late coins left after submission: **3** of **Yufei Liu**, ** ** of **Penny Shi**
+
+## Download and explore the Provider of Ser
