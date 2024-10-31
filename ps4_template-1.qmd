@@ -28,12 +28,12 @@ Partner 1: Yufei Liu (yufeil)
 Partner 2: Yufei Liu (yufeil)
 
 
-This submission is our work alone and complies with the 30538 integrity policy. Add your initials to indicate your agreement: **Yufei Liu**, **Penny Shi**
+This submission is our work alone and complies with the 30538 integrity policy. Add your initials to indicate your agreement: **Yufei Liu**
 
 I have uploaded the names of anyone else other than my partner and I worked with
 on the problem set. (No other one)
 
-Late coins used this pset: **0** Late coins left after submission: **3** of **Yufei Liu**, ** ** of **Penny Shi**
+Late coins used this pset: **0** Late coins left after submission: **3** of **Yufei Liu**
 
 ## Download and explore the Provider of Services (POS) file (10 pts)
 
@@ -60,19 +60,19 @@ base_path = "/Users/nancy/Documents/Document/U.S/class/fall 2024/dap2/homework/p
 1. 
 **Selected Variables**:
 
-- FAC_NAME: Facility Name
-- PRVDR_CTGRY_SBTYP_CD: Identifies the subtype of the provider, within the primary category. Used in reporting to show the breakdown of provider categories, mainly for hospitals and SNFs.
-- PRVDR_CTGRY_CD: Identifies the type of provider participating in the Medicare/Medicaid program.
-- PGM_TRMNTN_CD: Termination Code (00=ACTIVE PROVIDER)
-- PRVDR_NUM: provider. CMS Certification Number. 
-- CITY_NAME: City in which the provider is physically located.
-- SSA_CNTY_CD: the county where the provider is located.
-- SSA_STATE_CD: Social Security Administration geographic code indicating the state where the provider is located.
-- STATE_CD: Two-character state abbreviation
+- **FAC_NAME**: Facility Name
+- **PRVDR_CTGRY_SBTYP_CD**: Identifies the subtype of the provider, within the primary category. Used in reporting to show the breakdown of provider categories, mainly for hospitals and SNFs.
+- **PRVDR_CTGRY_CD**: Identifies the type of provider participating in the Medicare/Medicaid program.
+- **PGM_TRMNTN_CD**: Termination Code (00=ACTIVE PROVIDER)
+- **PRVDR_NUM**: provider. CMS Certification Number. 
+- **CITY_NAME**: City in which the provider is physically located.
+- **SSA_CNTY_CD**: the county where the provider is located.
+- **SSA_STATE_CD**: Social Security Administration geographic code indicating the state where the provider is located.
+- **STATE_CD**: Two-character state abbreviation
 - TRMNTN_EXPRTN_DT:  Date the provider was terminated. For CLIA providers, date the laboratory's certificate was terminated or the expiration date of the current CLIA certificate
-- PSYCH_UNIT_TRMNTN_CD: Indicates the reason that a psychiatric unit of a hospital is no longer exempt from Prospective Payment System (PPS).
-- ZIP_CD:  Five-digit ZIP code for a provider's physical address
-- GNRL_FAC_TYPE_CD: Indicates the category-specific facility type code, for certain provider categories only.
+- **PSYCH_UNIT_TRMNTN_CD**: Indicates the reason that a psychiatric unit of a hospital is no longer exempt from Prospective Payment System (PPS).
+- **ZIP_CD**:  Five-digit ZIP code for a provider's physical address
+- **GNRL_FAC_TYPE_CD**: Indicates the category-specific facility type code, for certain provider categories only.
 
 
 2. 
@@ -476,15 +476,128 @@ print("Do Texas ZIP codes intersect with bordering states' ZIP codes?", is_borde
 ```
 
 3. 
+
+```{python}
+# Filter the dataframe for active hospitals in 2016
+active_short2016_df = df_short[(df_short['PGM_TRMNTN_CD'] == 0) & (df_short['YEAR'] == 2016)]
+
+# Group by ZIP_CD and count unique provider numbers
+zip_with_hospitals_2016 = active_short2016_df.groupby('ZIP_CD')['PRVDR_NUM'].nunique()
+
+# Filter ZIP codes with at least one unique hospital provider
+zip_with_hospitals_2016 = zip_with_hospitals_2016[zip_with_hospitals_2016 >= 1]
+
+# Display the resulting ZIP codes and the number of unique hospitals in each
+zip_with_hospitals_2016 = zip_with_hospitals_2016.reset_index()
+zip_with_hospitals_2016.columns = ['ZIP_CD', 'Unique_Hospitals']
+zip_with_hospitals_2016.head()
+```
+
+```{python}
+zips_texas_borderstates_centroids = zips_texas_borderstates_centroids.rename(columns={'ZCTA5': 'ZIP_CD'})
+
+# Merge the centroids GeoDataFrame with the DataFrame of ZIP codes with hospitals
+zips_withhospital_centroids = zips_texas_borderstates_centroids.merge(
+    zip_with_hospitals_2016, 
+    on='ZIP_CD', 
+    how='inner'
+)
+
+```
+
+Merge Type: An inner merge was chosen because we want only the ZIP codes that are in both datasets (i.e., ZIP codes in Texas and bordering states that had at least one hospital in 2016).
+
+Merge Key: The merge is done on the ZIP_CD column, which represents the ZIP codes.
+
 4. 
-    a.
-    b.
-    c.
-5. 
-    a.
-    b.
-    c.
+    a. 
+
+```{python}
+sample_zips = zips_texas_centroids.sample(10)
+start_time = time.time()
+distances = []
+
+for idx, row in sample_zips.iterrows():
+    # Find the nearest point in zips_withhospital_centroids for each zip in sample_zips
+    nearest_geom = zips_withhospital_centroids.distance(row['geometry']).idxmin()
+    nearest_distance = row['geometry'].distance(zips_withhospital_centroids.loc[nearest_geom, 'geometry'])
+    distances.append(nearest_distance)
+
+end_time = time.time()
+sample_duration = end_time - start_time
+print("Time taken for sample of 10 ZIP codes:", sample_duration, "seconds")
+
+total_rows = len(zips_texas_centroids)
+estimated_time = (sample_duration / 10) * total_rows
+print("Estimated time for full calculation:", estimated_time, "seconds")
+
+```
+
+    b. 
+
+```{python}
+start_time_full = time.time()
+full_distances = []
+
+for idx, row in zips_texas_centroids.iterrows():
+    nearest_geom = zips_withhospital_centroids.distance(row['geometry']).idxmin()
+    nearest_distance = row['geometry'].distance(zips_withhospital_centroids.loc[nearest_geom, 'geometry'])
+    full_distances.append(nearest_distance)
+
+end_time_full = time.time()
+actual_time = end_time_full - start_time_full
+print("Actual time for full calculation:", actual_time, "seconds")
+print("Estimated vs. Actual:", estimated_time, "vs.", actual_time)
+
+```
+
+    c. 
+
+```{python}
+distances_in_miles = [dist / 1609.34 for dist in full_distances]
+```
     
+5. 
+    a. 
+
+```{python}
+distances = []
+for idx, row in zips_texas_centroids.iterrows():
+    # Find the nearest hospital ZIP code's geometry
+    nearest_geom = zips_withhospital_centroids.distance(row['geometry']).idxmin()
+    # Calculate the distance
+    nearest_distance = row['geometry'].distance(zips_withhospital_centroids.loc[nearest_geom, 'geometry'])
+    distances.append(nearest_distance)
+
+# Add the distances as a new column in the GeoDataFrame
+zips_texas_centroids['distance_to_hospital'] = distances
+
+# Convert the distances to miles
+zips_texas_centroids['distance_to_hospital_miles'] = zips_texas_centroids['distance_to_hospital'] / 1609.34
+```
+
+    b. 
+
+```{python}
+average_distance_miles = zips_texas_centroids['distance_to_hospital_miles'].mean()
+print("Average distance to the nearest hospital in miles:", average_distance_miles)
+```
+
+    c.
+
+```{python}
+import matplotlib.pyplot as plt
+
+# Plot the Texas ZIP codes with color representing distance to the nearest hospital
+fig, ax = plt.subplots(1, 1, figsize=(12, 10))
+zips_texas_centroids.plot(column='distance_to_hospital_miles', cmap='viridis', legend=True, 
+                          legend_kwds={'label': "Distance to Nearest Hospital (miles)"},
+                          ax=ax)
+ax.set_title("Distance to Nearest Hospital for Each ZIP Code in Texas")
+plt.show()
+
+```    
+
 ## Effects of closures on access in Texas (15 pts)
 
 1. 
