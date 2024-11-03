@@ -8,6 +8,8 @@ format:
        text: |
          \usepackage{fvextra}
          \DefineVerbatimEnvironment{Highlighting}{Verbatim}{breaklines,commandchars=\\\{\}}
+    fontsize: 10pt
+    documentclass: scrartcl 
 include-before-body:
   text: |
     \RecustomVerbatimEnvironment{verbatim}{Verbatim}{
@@ -22,6 +24,8 @@ include-before-body:
 
 ## Style Points (10 pts)
 
+We use pep8 style.
+
 ## Submission Steps (10 pts)
 
 Partner 1: Yufei Liu (yufeil)
@@ -35,6 +39,8 @@ on the problem set. (No other one)
 
 Late coins used this pset: **0** Late coins left after submission: **3** of **Yufei Liu**
 
+
+
 ## Download and explore the Provider of Services (POS) file (10 pts)
 
 ```{python}
@@ -45,6 +51,8 @@ import os
 from tabulate import tabulate
 import geopandas as gpd
 import matplotlib.pyplot as plt
+import matplotlib.ticker as ticker
+from matplotlib.colors import ListedColormap
 from shapely.geometry import Polygon
 
 import warnings 
@@ -69,7 +77,7 @@ base_path = "/Users/nancy/Documents/Document/U.S/class/fall 2024/dap2/homework/p
 - **SSA_CNTY_CD**: the county where the provider is located.
 - **SSA_STATE_CD**: Social Security Administration geographic code indicating the state where the provider is located.
 - **STATE_CD**: Two-character state abbreviation
-- TRMNTN_EXPRTN_DT:  Date the provider was terminated. For CLIA providers, date the laboratory's certificate was terminated or the expiration date of the current CLIA certificate
+- **TRMNTN_EXPRTN_DT**:  Date the provider was terminated. For CLIA providers, date the laboratory's certificate was terminated or the expiration date of the current CLIA certificate
 - **PSYCH_UNIT_TRMNTN_CD**: Indicates the reason that a psychiatric unit of a hospital is no longer exempt from Prospective Payment System (PPS).
 - **ZIP_CD**:  Five-digit ZIP code for a provider's physical address
 - **GNRL_FAC_TYPE_CD**: Indicates the category-specific facility type code, for certain provider categories only.
@@ -82,7 +90,7 @@ base_path = "/Users/nancy/Documents/Document/U.S/class/fall 2024/dap2/homework/p
 path_data_pos2016 = os.path.join(base_path, 'pos_1/pos2016.csv')
 df_pos2016 = pd.read_csv(path_data_pos2016)
 print(df_pos2016.shape)
-df_pos2016.head(3)
+# df_pos2016.head(3)
 ```
 
     a. Short-term hospitals in dataset
@@ -91,11 +99,14 @@ Short-term facilities are hospitals with type code 01(PRVDR_CTGRY_CD = 01) and s
 There are short-term 7245 hospitals according to the selected dataset.
 
 ```{python}
-# short-term hospitals(type code 01 and subtype code 01)
-df_short_pos2016 = df_pos2016[(df_pos2016["PRVDR_CTGRY_CD"] == 1.0)&(df_pos2016['PRVDR_CTGRY_SBTYP_CD'] == 1)]
-print(df_short_pos2016.shape)
+# Short-term hospitals (type code 01 and subtype code 01)
+df_short_pos2016 = df_pos2016[
+    (df_pos2016["PRVDR_CTGRY_CD"] == 1.0) & (df_pos2016['PRVDR_CTGRY_SBTYP_CD'] == 1)
+]
 
+print(df_short_pos2016.shape)
 print(df_short_pos2016['PRVDR_NUM'].nunique())
+
 ```
 
 ```{python}
@@ -112,28 +123,28 @@ It's different from what we got in the datasets, might because the 5000 shor-ter
 3. 
 
 ```{python}
-# import datasets from 2017Q4 ~ 2019Q4
+# Import datasets from 2017Q4 ~ 2019Q4
 def load_yearly_data(base_path, start_year=2017, end_year=2019):
     # Dictionary to store DataFrames for each year
     data_frames = {}
-    
+
     # Loop through each year in the range
     for year in range(start_year, end_year + 1):
         # Construct the file path for the specific year
-        file_path = os.path.join(base_path, f'pos{year}.csv')
+        file_path = os.path.join(base_path, f'pos_1/pos{year}.csv')
         df = pd.read_csv(file_path)
-        
+
         # Filter for short-term facilities
         df = df[(df["PRVDR_CTGRY_CD"] == 1) & (df["PRVDR_CTGRY_SBTYP_CD"] == 1.0)]
-        
+
         # Add a 'Year' column
         df["YEAR"] = year
-        
+
         # Store the filtered DataFrame with the year column in the dictionary
-        data_frames[year] = df        
-        print(f"Loaded data for {year}: {data_frames[year].shape[0]} rows, {data_frames[year].shape[1]} columns")
-    
+        data_frames[year] = df
+
     return data_frames
+
 
 data_frames = load_yearly_data(base_path)
 
@@ -141,9 +152,6 @@ df_short_pos2017 = data_frames[2017]
 df_short_pos2018 = data_frames[2018]
 df_short_pos2019 = data_frames[2019]
 
-print(df_short_pos2017.columns)
-print(df_short_pos2018.columns)
-print(df_short_pos2019.columns)
 ```
 
 
@@ -151,34 +159,34 @@ print(df_short_pos2019.columns)
 # append datset
 df_short_pos2016['YEAR'] = 2016
 df_short = pd.concat([df_short_pos2016] + list(data_frames.values()), ignore_index=True)
-df_short.head(3)
+
+df_short['ZIP_CD'] = df_short['ZIP_CD'].fillna(0).astype(int).astype(str).str.zfill(5)
+df_short['PRVDR_NUM'] = df_short['PRVDR_NUM'].fillna(0).astype(int).astype(str)
+
+# df_short.head(3)
+df_short.shape
 ```
 
 **The Plot for observations from 2016 to 2019**
 
 ```{python}
 obs_year = df_short.groupby('YEAR')['PRVDR_NUM'].count().reset_index()
-obs_year.rename(columns={'PRVDR_NUM':'NUM_HOS'},inplace=True)
+obs_year.rename(columns={'PRVDR_NUM': 'NUM_HOS'}, inplace=True)
 
-bar_obs = alt.Chart(obs_year).mark_bar(color='#9966CC').encode(
-  x = alt.X('YEAR:O',title='Year'),
-  y = alt.Y('NUM_HOS:Q',title='Count of Observations'),
-  tooltip=['YEAR','NUM_HOS']
-)
+plt.figure(figsize=(10, 6))
+plt.bar(obs_year['YEAR'], obs_year['NUM_HOS'], color='#9966CC')
 
-text_obs = bar_obs.mark_text(
-    align='center',
-    baseline='bottom',
-    dy=-5
-).encode(
-    text='NUM_HOS:Q'
-)
-chart_obs = (bar_obs+text_obs).properties(
-  title = 'Plot 1:Numbers of Short-term Hospitals by Year',
-  width='container',
-  height=400
-)
-chart_obs
+for i, value in enumerate(obs_year['NUM_HOS']):
+    plt.text(obs_year['YEAR'][i], value, str(value), ha='center', va='bottom')
+
+plt.title('Plot 1: Numbers of Short-term Hospitals by Year')
+plt.xlabel('Year')
+plt.ylabel('Count of Observations')
+
+plt.xticks(obs_year['YEAR'])
+
+plt.show()
+
 ```
 
 4. 
@@ -186,27 +194,27 @@ chart_obs
 
 ```{python}
 obs_year_unique = df_short.groupby('YEAR')['PRVDR_NUM'].nunique().reset_index()
-obs_year_unique.rename(columns={'PRVDR_NUM':'NUM_HOS_UQ'},inplace=True)
+obs_year_unique.rename(columns={'PRVDR_NUM': 'NUM_HOS_UQ'}, inplace=True)
 
-bar_obs_unique = alt.Chart(obs_year_unique).mark_bar(color='#9966CC').encode(
-  x = alt.X('YEAR:O',title='Year'),
-  y = alt.Y('NUM_HOS_UQ:Q',title='Unique Count of Observations'),
-  tooltip=['YEAR','NUM_HOS_UQ']
-)
+# Create bar plot using matplotlib
+plt.figure(figsize=(10, 6))
+plt.bar(obs_year_unique['YEAR'], obs_year_unique['NUM_HOS_UQ'], color='#9966CC')
 
-text_obs_unique = bar_obs_unique.mark_text(
-    align='center',
-    baseline='bottom',
-    dy=-5
-).encode(
-    text='NUM_HOS_UQ:Q'
-)
-chart_obs_unique = (bar_obs_unique+text_obs_unique).properties(
-  title = 'Plot 1:Unique Numbers of Short-term Hospitals by Year',
-  width='container',
-  height=400
-)
-chart_obs_unique
+# Add text labels on top of each bar
+for i, value in enumerate(obs_year_unique['NUM_HOS_UQ']):
+    plt.text(obs_year_unique['YEAR'][i], value, str(value), ha='center', va='bottom')
+
+# Set title and labels
+plt.title('Plot 1: Unique Numbers of Short-term Hospitals by Year')
+plt.xlabel('Year')
+plt.ylabel('Unique Count of Observations')
+
+# Set x-axis to display integer years only
+plt.xticks(obs_year_unique['YEAR'])
+
+# Show the plot
+plt.show()
+
 ```
 
     b.
@@ -220,53 +228,60 @@ The numbers of observations in each year are the same as the unique counts. Ther
 A hospital is suspected to have closed if its Termination Code('PGM_TRMNTN_CD') in the POS file lists them as an “Active Provider” ('PGM_TRMNTN_CD' = 0) in 2016 and then they are either not active or do not appear in the data at all in a subsequent year. We will also record suspected closed hospital's zip code ('ZIP_CD'), facility name ('FAC_NAME') and year of closure.
 
 ```{python}
-active_short2016 = df_short[(df_short['PGM_TRMNTN_CD'] == 0) & (df_short['YEAR'] == 2016)]['PRVDR_NUM'].unique()
+active_short2016 = df_short[
+    (df_short['PGM_TRMNTN_CD'] == 0) & (df_short['YEAR'] == 2016)
+]['PRVDR_NUM'].unique()
 
 def find_closure_csm(active_short2016, df_short):
-  closure_csm = []
+    closure_csm = []
 
-  for csm in active_short2016:
-    # Flag to stop searching once added to closure_csm
-    added_to_closure = False
-
-    # Retrieve 2016 ZIP code and facility name for fallback use
-    info_2016 = df_short[(df_short['PRVDR_NUM'] == csm) & (df_short['YEAR'] == 2016)]
-    zip_2016 = info_2016['ZIP_CD'].iloc[0] if not info_2016.empty else None
-    fac_name_2016 = info_2016['FAC_NAME'].iloc[0] if not info_2016.empty else None
-
-    for year in [2017,2018,2019]:
-      year_check = df_short[(df_short['YEAR']==year)&(df_short['PRVDR_NUM']==csm)]
-
-      # Check conditions:
-      # 1. If the provider exists and PGM_TRMNTN_CD is not 0, add to closure_csm
-      # 2. If the provider does not exist for this year, also add to closure_csm
-      if not year_check.empty and (year_check['PGM_TRMNTN_CD'].iloc[0]!=0):
-        closure_csm.append({
-          'PRVDR_NUM':csm,
-          'YEAR_CLO':year,
-          'ZIP_CD':year_check['ZIP_CD'].values[0],
-          'FAC_NAME':year_check['FAC_NAME'].values[0]
-        })
+    for csm in active_short2016:
+        # Flag to stop searching once added to closure_csm
         added_to_closure = False
-        break
 
-      elif year_check.empty:
-        closure_csm.append({
-            'PRVDR_NUM': csm,
-            'YEAR_CLO': year,
-            'ZIP_CD': zip_2016,
-            'FAC_NAME': fac_name_2016
-        })
-        added_to_closure = True
-        break
+        # Retrieve 2016 ZIP code and facility name for fallback use
+        info_2016 = df_short[
+            (df_short['PRVDR_NUM'] == csm) & (df_short['YEAR'] == 2016)
+        ]
+        zip_2016 = info_2016['ZIP_CD'].iloc[0] if not info_2016.empty else None
+        fac_name_2016 = info_2016['FAC_NAME'].iloc[0] if not info_2016.empty else None
 
-      if added_to_closure:
-        continue
+        for year in [2017, 2018, 2019]:
+            year_check = df_short[
+                (df_short['YEAR'] == year) & (df_short['PRVDR_NUM'] == csm)
+            ]
 
-  return closure_csm
+            # Check conditions:
+            # 1. If the provider exists and PGM_TRMNTN_CD is not 0, add to closure_csm
+            # 2. If the provider does not exist for this year, also add to closure_csm
+            if not year_check.empty and (year_check['PGM_TRMNTN_CD'].iloc[0] != 0):
+                closure_csm.append({
+                    'PRVDR_NUM': csm,
+                    'YEAR_CLO': year,
+                    'ZIP_CD': year_check['ZIP_CD'].values[0],
+                    'FAC_NAME': year_check['FAC_NAME'].values[0]
+                })
+                added_to_closure = False
+                break
+
+            elif year_check.empty:
+                closure_csm.append({
+                    'PRVDR_NUM': csm,
+                    'YEAR_CLO': year,
+                    'ZIP_CD': zip_2016,
+                    'FAC_NAME': fac_name_2016
+                })
+                added_to_closure = True
+                break
+
+            if added_to_closure:
+                continue
+
+    return closure_csm
 
 closure_csm = find_closure_csm(active_short2016, df_short)
 print(f"There are {len(closure_csm)} hospitals suspected to close.")
+
 
 ```
 
@@ -288,64 +303,76 @@ for entry in closure_csm[:10]:
 
 To find true closure, we need to firstly remove firms potentially being merger/acquisition. 
 
-We remove any suspected hospital closures that are in zip codes (ZIP_CD) where the number of active hospitals does not decrease in the year after the suspected closure.
+We remove any suspected hospital closures that are in zip codes (ZIP_CD) where the number of active hospitals does not decrease in the year after the suspected closure. To count number of hospitals, we group by CMS number('PGM_TRMNTN_CD').
 
 ```{python}
+# Convert closure data into a DataFrame
 closure_df = pd.DataFrame(closure_csm)
+# Filter out active short-term hospitals with zip codes in closure list
+# df_active = df_short[(df_short['PGM_TRMNTN_CD'] == 0) & df_short['ZIP_CD'].isin(closure_df['ZIP_CD'])]
+df_active = df_short[df_short['PGM_TRMNTN_CD'] == 0]
+# Get the counts of active hospitals in each zip code and year
+zip_year1 = df_active.groupby(['ZIP_CD', 'YEAR']).size().reset_index(name='active')
+zip_year1 = zip_year1[['ZIP_CD', 'YEAR', 'active']]
+zip_year1['active_next_y'] = zip_year1.groupby('ZIP_CD')['active'].shift(-1)
 
-# Step 2: Filter df_short for active firms (PGM_TRMNTN_CD == 0) and only include ZIP_CDs in closure_df
-df_active = df_short[(df_short['PGM_TRMNTN_CD'] == 0) & df_short['ZIP_CD'].isin(closure_df['ZIP_CD'])]
-
-# Step 3: Group by 'ZIP_CD' and 'YEAR' in df_active to get the 'active' count
-zip_year = df_active.groupby(['ZIP_CD', 'YEAR']).size().reset_index(name='active')
-zip_year = zip_year[['ZIP_CD', 'YEAR', 'active']]
-
-# Step 4: Prepare closure_counts without grouping by FAC_NAME and PRVDR_NUM
-closure_counts = closure_df[['ZIP_CD', 'YEAR_CLO', 'FAC_NAME', 'PRVDR_NUM']]
-closure_counts['num_closure'] = 1  # Add a column to indicate closures
+# Prepare closure_counts with unique counts of PRVDR_NUM per ZIP_CD and YEAR, retaining PRVDR_NUM column
+closure_counts = closure_df[['ZIP_CD', 'YEAR_CLO', 'PRVDR_NUM']]
+closure_counts = (
+    closure_counts.groupby(['ZIP_CD', 'YEAR_CLO'])
+    .agg(num_closure=('PRVDR_NUM', 'nunique'), PRVDR_NUM_list=('PRVDR_NUM', 'unique'))
+    .reset_index()
+)
 
 # Rename 'YEAR_CLO' to 'YEAR' for consistency with zip_year
 closure_counts = closure_counts.rename(columns={'YEAR_CLO': 'YEAR'})
+# Merge DataFrames and check row count
+zip_year = closure_counts.merge(zip_year1, on=['ZIP_CD', 'YEAR'], how='left')
+# zip_year = zip_year.merge(closure_counts, on=['ZIP_CD', 'YEAR'], how='left')
+# Fill NaN values in the 'active' column and check row count again
+zip_year['active'] = zip_year['active'].fillna(0)
 
-# Merge closure_counts with zip_year on 'ZIP_CD' and 'YEAR'
-zip_year = zip_year.merge(closure_counts, on=['ZIP_CD', 'YEAR'], how='left')
+zip_year['active_next_y'] = zip_year['active_next_y'].fillna(0)
 
-# Fill NaN values in 'num_closure' with 0 and convert to int
-zip_year['num_closure'] = zip_year['num_closure'].fillna(0).astype(int)
-
-# Calculate active hospitals in the following year for each ZIP_CD
-zip_year['active_next_y'] = zip_year.groupby('ZIP_CD')['active'].shift(-1)
-
-# Filter for closures where the number of active hospitals does not decrease in the following year
 zip_false_clo = zip_year[
     (zip_year['num_closure'] != 0) &
     (zip_year['active'] <= zip_year['active_next_y'])
 ]
 
 print(zip_false_clo.shape)
-zip_false_clo
-
+unique_prvdr_num_count = set([prvdr_num for sublist in zip_false_clo['PRVDR_NUM_list'].dropna() for prvdr_num in sublist]).__len__()
+print(f"Unique PRVDR_NUM count in zip_false_clo: {unique_prvdr_num_count}")
 ```
 
-    b. 
-
 ```{python}
-zip_false_clo['PRVDR_NUM'].nunique()
-
 # Create a set of (YEAR, PRVDR_NUM) pairs from zip_false_clo to remove
-remove_pairs = set(zip(zip_false_clo['YEAR'], zip_false_clo['PRVDR_NUM']))
+remove_pairs = set(
+    (year, prvdr_num)
+    for year, prvdr_num_list in zip(zip_false_clo['YEAR'], zip_false_clo['PRVDR_NUM_list'])
+    if prvdr_num_list is not None
+    for prvdr_num in prvdr_num_list
+)
 
-# Filter closure_csm to exclude entries with matching YEAR and PRVDR_NUM in remove_pairs
+# Filter closure_csm to exclude entries with matching (YEAR_CLO, PRVDR_NUM) in remove_pairs
 closure_csm_true = [
     entry for entry in closure_csm
     if (entry['YEAR_CLO'], entry['PRVDR_NUM']) not in remove_pairs
 ]
 
-# closure_csm_filtered now contains only the entries that don’t match the specified (YEAR, PRVDR_NUM) pairs
-print(f"Filtered closure_csm length: {len(closure_csm_true)}")
+# closure_csm_true now contains only the entries that don’t match the specified (YEAR, PRVDR_NUM) pairs
+print(f"There are {len(closure_csm_true)} hospitals left.")
 ```
 
-There are 28 hospital fit this definition of potentially being a merger/acquisition. After correcting them, 146 hospitals have left.
+
+There are 148 hospital fit this definition of potentially being a merger/acquisition. After correcting them, 26 hospitals have left as of true closure.
+
+    b. 
+
+```{python}
+sorted_closure_csm_true = sorted(closure_csm_true, key=lambda x: x['FAC_NAME'])[:10]
+sorted_closure_df = pd.DataFrame(sorted_closure_csm_true)
+sorted_closure_df.head(10)
+```
 
     c. 
 
@@ -363,11 +390,11 @@ for entry in closure_csm_true[:10]:
 ## Download Census zip code shapefile (10 pt) 
 
 ```{python}
-# import cencus data
-cencus_path = os.path.join(base_path, 'gz_2010_us_860_00_500k/gz_2010_us_860_00_500k.shp')
-print(cencus_path)
-census_data = gpd.read_file(cencus_path)
-census_data.head(3)
+# import census data
+census_path = os.path.join(base_path, 'gz_2010_us_860_00_500k/gz_2010_us_860_00_500k.shp')
+# print(census_path)
+census_data = gpd.read_file(census_path)
+# census_data.head(3)
 ```
 
 1. 
@@ -406,21 +433,55 @@ texas_zip_prefixes = [str(i) for i in range(750,800)] + ['733', '885']
 
 census_tx = census_data[census_data['ZCTA5'].str[:3].isin(texas_zip_prefixes)]
 
-census_tx.head(3)
+# census_tx.head(3)
 ```
 
 ```{python}
+# Filter the dataframe for active hospitals in 2016
+active_short2016_df = df_short[(df_short['PGM_TRMNTN_CD'] == 0) & (df_short['YEAR'] == 2016)]
 
+texas_hospitals_2016 = active_short2016_df[
+    active_short2016_df['ZIP_CD'].astype(str).str[:3].isin(texas_zip_prefixes)
+]
 
+# Count the number of hospitals per zip code in Texas for 2016
+hospital_counts = texas_hospitals_2016.groupby('ZIP_CD').size().reset_index(name='num_hospitals')
 
-
+# Merge the hospital counts with the Texas zip code shapefile data in census_tx
+texas_zip_hospitals = census_tx.merge(hospital_counts, left_on='ZCTA5', right_on='ZIP_CD', how='left')
+texas_zip_hospitals['num_hospitals'] = texas_zip_hospitals['num_hospitals'].fillna(0)
 ```
 
-
 ```{python}
-print(census_tx.columns)
-print(hospitals_per_zip.columns)
-census_tx
+# Define a discrete purple color map with specific colors for each integer value
+discrete_colors = ListedColormap(['#f2e6ff', '#d9b3ff', '#b266ff', '#8c1aff', '#4d0099'])
+# '#f2e6ff' is very light, moving to darker purple shades
+
+fig, ax = plt.subplots(1, 1, figsize=(8, 5))
+
+# Use the discrete color map
+choropleth = texas_zip_hospitals.plot(
+    column='num_hospitals', 
+    cmap=discrete_colors,   # Use the discrete color map
+    linewidth=0.2, 
+    ax=ax, 
+    edgecolor='black', 
+    legend=True,
+    vmin=0,  # Set minimum value for color scaling
+    vmax=5   # Set the maximum value to align with the number of color steps
+)
+
+# Customize the legend to have integer values only
+legend = choropleth.get_legend()
+if legend:
+    legend.set_bbox_to_anchor((1, 0.5))
+    legend.set_title("Number of Hospitals")
+    legend.ax.yaxis.set_major_locator(ticker.MultipleLocator(1))  # Set integer ticks with interval 1
+    legend.ax.yaxis.set_major_formatter(ticker.FormatStrFormatter('%d'))  # Remove decimal places
+
+ax.set_title('Number of Hospitals per Zip Code in Texas (2016)', fontsize=15)
+plt.axis('off')
+plt.show()
 ```
 
 ## Calculate zip code’s distance to the nearest hospital (20 pts) (*)
@@ -477,10 +538,8 @@ print("Do Texas ZIP codes intersect with bordering states' ZIP codes?", is_borde
 
 3. 
 
+In this part, we would find zip code with at least 1 active short-term hospital.
 ```{python}
-# Filter the dataframe for active hospitals in 2016
-active_short2016_df = df_short[(df_short['PGM_TRMNTN_CD'] == 0) & (df_short['YEAR'] == 2016)]
-
 # Group by ZIP_CD and count unique provider numbers
 zip_with_hospitals_2016 = active_short2016_df.groupby('ZIP_CD')['PRVDR_NUM'].nunique()
 
@@ -490,7 +549,7 @@ zip_with_hospitals_2016 = zip_with_hospitals_2016[zip_with_hospitals_2016 >= 1]
 # Display the resulting ZIP codes and the number of unique hospitals in each
 zip_with_hospitals_2016 = zip_with_hospitals_2016.reset_index()
 zip_with_hospitals_2016.columns = ['ZIP_CD', 'Unique_Hospitals']
-zip_with_hospitals_2016.head()
+zip_with_hospitals_2016.shape
 ```
 
 ```{python}
@@ -586,14 +645,13 @@ print("Average distance to the nearest hospital in miles:", average_distance_mil
     c.
 
 ```{python}
-import matplotlib.pyplot as plt
-
 # Plot the Texas ZIP codes with color representing distance to the nearest hospital
-fig, ax = plt.subplots(1, 1, figsize=(12, 10))
+fig, ax = plt.subplots(1, 1, figsize=(10, 5))
 zips_texas_centroids.plot(column='distance_to_hospital_miles', cmap='viridis', legend=True, 
                           legend_kwds={'label': "Distance to Nearest Hospital (miles)"},
                           ax=ax)
 ax.set_title("Distance to Nearest Hospital for Each ZIP Code in Texas")
+plt.axis('off')
 plt.show()
 
 ```    
@@ -617,10 +675,6 @@ print(tabulate(zip_code_closures, headers="keys", tablefmt="grid"))
 2. 
 
 ```{python}
-
-```
-
-```{python}
 # Convert ZIP_CD in closure_true_tx_df to strings, removing any decimals
 closure_true_tx_df['ZIP_CD'] = closure_true_tx_df['ZIP_CD'].astype(int).astype(str)
 
@@ -631,13 +685,13 @@ census_tx['ZCTA5'] = census_tx['ZCTA5'].astype(str)
 census_tx['affected'] = census_tx['ZCTA5'].isin(closure_true_tx_df['ZIP_CD']).astype(int)
 
 # Step 3: Plot the choropleth of Texas ZIP codes with color only for affected areas
-fig, ax = plt.subplots(1, 1, figsize=(10, 10))
+fig, ax = plt.subplots(1, 1, figsize=(5, 5))
 
 # Plot affected areas in purple with borders
-census_tx[census_tx['affected'] == 1].plot(color='purple', linewidth=0.8, edgecolor='black', ax=ax)
+census_tx[census_tx['affected'] == 1].plot(color='red', linewidth=0.3, edgecolor='black', ax=ax)
 
 # Plot unaffected areas with no fill color, only borders
-census_tx[census_tx['affected'] == 0].plot(color='none', edgecolor='grey', linewidth=0.5, ax=ax)
+census_tx[census_tx['affected'] == 0].plot(color='none', edgecolor='grey', linewidth=0.2, ax=ax)
 
 # Customize plot
 ax.set_title("Texas ZIP Codes Affected by Closures (2016–2019)")
@@ -646,6 +700,9 @@ ax.set_axis_off()
 plt.show()
 ```
 
+```{python}
+census_tx[census_tx['affected'] == 1]
+```
 ```{python}
 # Count the number of directly affected ZIP codes in Texas
 num_directly_affected_zips = census_tx[census_tx['affected'] == 1]['ZCTA5'].nunique()
@@ -678,16 +735,16 @@ census_tx.loc[indirectly_affected_zips.index, 'category'] = 'Indirectly Affected
 census_tx.loc[census_tx['affected'] == 1, 'category'] = 'Directly Affected'
 
 # Define custom colors for the categories
-category_colors = {'Directly Affected': 'purple', 'Indirectly Affected': 'lightblue', 'Not Affected': 'lightyellow'}
+category_colors = {'Directly Affected': 'red', 'Indirectly Affected': 'lightblue', 'Not Affected': 'lightyellow'}
 census_tx['color'] = census_tx['category'].map(category_colors)
 
 # Plot the choropleth
-fig, ax = plt.subplots(1, 1, figsize=(10, 10))
-census_tx.plot(color=census_tx['color'], linewidth=0.8, edgecolor='black', ax=ax)
+fig, ax = plt.subplots(1, 1, figsize=(8, 8))
+census_tx.plot(color=census_tx['color'], linewidth=0.2, edgecolor='black', ax=ax)
 
 # Add legend
 handles = [
-    plt.Line2D([0], [0], marker='o', color='w', markerfacecolor='purple', markersize=10, label='Directly Affected'),
+    plt.Line2D([0], [0], marker='o', color='w', markerfacecolor='red', markersize=10, label='Directly Affected'),
     plt.Line2D([0], [0], marker='o', color='w', markerfacecolor='lightblue', markersize=10, label='Indirectly Affected(Within 10 miles)'),
     plt.Line2D([0], [0], marker='o', color='w', markerfacecolor='lightyellow', markersize=10, label='Not Affected')
 ]
@@ -702,5 +759,46 @@ plt.show()
 
 4. 
 
+
 ## Reflecting on the exercise (10 pts) 
+
+a. 
+
+**Some potential issues**:
+
+The “first-pass” method for identifying incorrectly classified hospital closures is limited in several ways. Here are some potential issues:
+
+- Limitations with Recent Data: Since the first-pass method relies on comparing hospital counts year-over-year, it can only flag closures up until 2018 due to the lack of data beyond 2019. This means closures in 2019 might not be accurately verified, as there’s no data for subsequent years to confirm the closure’s impact. 
+
+- Merger and Acquisition Impact: The first-pass method doesn’t account for closures due to mergers or acquisitions, which may lead to “false closures.” When a hospital appears to close but has merged with or been acquired by another institution, the closure is not necessarily a true one. 
+
+- Influence of New Hospitals: New hospital openings are not considered in the first-pass method. If new hospitals open in the area, they can artificially inflate the count of active hospitals in the following year, giving the appearance of a false closure when, in fact, the facility has shut down. 
+
+**Better Methods**:
+
+- A better approach might include obtaining more recent data or using other indicators that don’t depend solely on a year-over-year comparison.
+
+- A more robust approach would involve cross-referencing with external databases or public records on mergers and acquisitions to confirm if a hospital has genuinely ceased operations or simply changed ownership.
+
+- Including variables such as new hospital openings or expansions in nearby regions could improve the accuracy of the closure verification.
+
+-  The variable TRMNTN_EXPRTN_DT (Date the provider was terminated) could provide an official source to verify closures. Incorporating this variable would allow us to directly confirm whether a facility has been terminated according to official records, significantly improving the accuracy of closure identification.
+
+
+b.
+
+**How well does this reflect changes in zip-code-level access to hospitals?**:  
+
+- This method assumes that residents in the area will seek medical care at the nearest hospital and that hospitals are generally similar. If these assumptions hold, this approach can reflect the impact accurately.
+
+- However, different hospitals may offer different services, such as whether they provide emergency care, and each hospital may have historically served a different number of patients. The buffers could be different for each hospital.
+
+- The 10-mile assumption requires stronger justification. For instance, if nearby residents have high vehicle ownership rates, the impact range of a hospital closure might extend beyond 10 miles. 
+
+**Potential improvement**:
+- It would be beneficial to gather and consider such data to better measure the impact. This could involve examining variables related to hospital functions, bed count, number of doctors and nurses, and service ratings for a comprehensive assessment.
+
+- Different hospitals should consider use different mile-level buffers according to different historical data, like facilities level and vehicle ownership rates of residents.
+
+
 
